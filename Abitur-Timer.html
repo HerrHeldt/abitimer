@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abitur-Timer</title>
+  <style>
+    :root {
+      --purple:       #5b3fa6;
+      --purple-light: #7c5cce;
+      --purple-pale:  #ede8f9;
+      --purple-dark:  #3d2875;
+      --bg:           #f4f0fc;
+      --card:         #ffffff;
+      --text:         #2d1b69;
+      --muted:        #9588c0;
+      --border:       #d4c8f0;
+      --ea:           #5b3fa6;
+      --ga:           #2e8b57;
+      --ga-pale:      #e8f5ee;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+    }
+
+    /* ── SETUP ─────────────────────────────────────────────── */
+    #setupScreen {
+      background: var(--card);
+      border-radius: 28px;
+      padding: 52px 48px;
+      width: 520px;
+      box-shadow: 0 12px 48px rgba(91,63,166,.18);
+      border: 2px solid var(--border);
+    }
+
+    .setup-title {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--purple-dark);
+      letter-spacing: -.5px;
+    }
+    .setup-sub {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 4px 0 36px;
+    }
+
+    .form-group { margin-bottom: 24px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    select, input[type="time"], input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color .2s;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239588c0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px; }
+    select:focus, input:focus { border-color: var(--purple-light); }
+
+    /* gA / eA toggle */
+    .niveau-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .niv-btn {
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .2s;
+      background: var(--bg);
+      user-select: none;
+    }
+    .niv-btn.disabled {
+      opacity: .3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .niv-btn .niv-tag {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -.5px;
+    }
+    .niv-btn .niv-min {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+    /* eA = purple, gA = green */
+    .niv-btn[data-niv="eA"]:hover:not(.disabled) { border-color: var(--ea); background: var(--purple-pale); }
+    .niv-btn[data-niv="eA"].selected              { border-color: var(--ea); background: var(--ea); color: #fff; }
+    .niv-btn[data-niv="eA"].selected .niv-min     { color: rgba(255,255,255,.75); }
+    .niv-btn[data-niv="gA"]:hover:not(.disabled) { border-color: var(--ga); background: var(--ga-pale); }
+    .niv-btn[data-niv="gA"].selected              { border-color: var(--ga); background: var(--ga); color: #fff; }
+    .niv-btn[data-niv="gA"].selected .niv-min     { color: rgba(255,255,255,.75); }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -16px;
+      margin-bottom: 20px;
+      padding-left: 4px;
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 16px;
+      background: var(--purple);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .2s, transform .1s;
+    }
+    .btn-start:hover { background: var(--purple-dark); transform: translateY(-1px); }
+    .btn-start:active { transform: translateY(0); }
+
+    /* ── TIMER BOARD ────────────────────────────────────────── */
+    #timerScreen { display: none; width: 740px; }
+
+    .board {
+      background: var(--card);
+      border-radius: 28px;
+      border: 3px solid var(--purple);
+      padding: 52px 60px 44px;
+      box-shadow: 0 12px 48px rgba(91,63,166,.18);
+    }
+    .board.ea-mode { border-color: var(--ea); }
+    .board.ga-mode { border-color: var(--ga); }
+    .board.finished { animation: pulse-glow 2s ease-in-out infinite; }
+    @keyframes pulse-glow {
+      0%,100% { box-shadow: 0 12px 48px rgba(91,63,166,.18); }
+      50%      { box-shadow: 0 12px 72px rgba(91,63,166,.4); }
+    }
+
+    .board-layout {
+      display: grid;
+      grid-template-columns: 190px 1fr 190px;
+      align-items: center;
+    }
+
+    .col-left  { display: flex; flex-direction: column; gap: 24px; }
+    .col-right { display: flex; flex-direction: column; gap: 18px; align-items: flex-end; }
+
+    .info-block .ib-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .info-block .ib-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--purple-dark);
+      word-break: break-word;
+      line-height: 1.2;
+    }
+    .col-right .info-block { text-align: right; }
+
+    /* Niveau badge on board */
+    .niveau-badge {
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: .04em;
+    }
+    .niveau-badge.ea { background: var(--ea); }
+    .niveau-badge.ga { background: var(--ga); }
+
+    .col-center {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 10px; padding: 0 16px;
+    }
+
+    .svg-clock { width: 200px; height: 200px; }
+
+    .digital {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: -.03em;
+      color: var(--purple);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .digital.warning { color: #e05070; }
+
+    .phase-name {
+      font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .12em; color: var(--muted);
+    }
+
+    .nta-badge { font-size: 14px; font-weight: 700; color: var(--purple-light); }
+
+    .progress-wrap {
+      grid-column: 1 / -1; height: 6px;
+      background: var(--purple-pale); border-radius: 3px; overflow: hidden; margin-top: 32px;
+    }
+    .progress-fill {
+      height: 100%; background: var(--purple); border-radius: 3px;
+      transition: width 1s linear; width: 0%;
+    }
+    .ga-mode .progress-fill { background: var(--ga); }
+
+    .viel-erfolg {
+      grid-column: 1 / -1; text-align: center;
+      font-size: 34px; font-weight: 800; font-style: italic;
+      color: var(--purple); margin-top: 20px; letter-spacing: -.5px;
+    }
+
+    .reset-link {
+      display: block; text-align: center; margin-top: 14px;
+      font-size: 13px; color: var(--muted); cursor: pointer;
+      background: none; border: none; font-family: inherit; transition: color .2s;
+    }
+    .reset-link:hover { color: var(--purple); }
+
+    /* ── DONE OVERLAY ────────────────────────────────────────── */
+    #doneOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(45,27,105,.55); backdrop-filter: blur(10px);
+      align-items: center; justify-content: center; z-index: 200;
+    }
+    .done-card {
+      background: var(--card); border-radius: 28px; padding: 52px 48px;
+      text-align: center; max-width: 420px; width: 90%;
+      box-shadow: 0 24px 80px rgba(0,0,0,.25);
+    }
+    .done-card .dc-emoji { font-size: 64px; margin-bottom: 16px; }
+    .done-card h2 { font-size: 30px; font-weight: 900; color: var(--purple-dark); margin-bottom: 10px; }
+    .done-card p  { color: var(--muted); font-size: 15px; margin-bottom: 36px; }
+    .btn-new {
+      padding: 16px 40px; background: var(--purple); color: #fff;
+      border: none; border-radius: 14px; font-size: 17px; font-weight: 700;
+      cursor: pointer; transition: background .2s;
+    }
+    .btn-new:hover { background: var(--purple-dark); }
+  </style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN ─────────────────────────────────────── -->
+<div id="setupScreen">
+  <div class="setup-title">Abitur-Timer</div>
+  <div class="setup-sub">Prüfungszeit 2026 · ZA Niedersachsen</div>
+
+  <div class="form-group">
+    <label class="form-label" for="fachSelect">Prüfungsfach</label>
+    <select id="fachSelect" onchange="onFachChange()">
+      <option value="">– Fach wählen –</option>
+      <optgroup label="Sprachen">
+        <option value="Deutsch">Deutsch</option>
+        <option value="Englisch">Englisch</option>
+        <option value="Französisch">Französisch</option>
+        <option value="Französisch (neub.)">Französisch (neubeginnend)</option>
+        <option value="Spanisch">Spanisch</option>
+        <option value="Spanisch (neub.)">Spanisch (neubeginnend)</option>
+        <option value="Latein">Latein</option>
+        <option value="Griechisch">Griechisch</option>
+      </optgroup>
+      <optgroup label="Künste">
+        <option value="Kunst">Kunst</option>
+        <option value="Musik">Musik</option>
+      </optgroup>
+      <optgroup label="Gesellschaftswissenschaften">
+        <option value="Erdkunde">Erdkunde</option>
+        <option value="Geschichte">Geschichte</option>
+        <option value="Politik-Wirtschaft">Politik-Wirtschaft</option>
+      </optgroup>
+      <optgroup label="Religion / Ethik">
+        <option value="Ev. Religion">Ev. Religion</option>
+        <option value="Kath. Religion">Kath. Religion</option>
+        <option value="Werte und Normen">Werte und Normen</option>
+      </optgroup>
+      <optgroup label="Naturwissenschaften &amp; Mathematik">
+        <option value="Mathematik">Mathematik</option>
+        <option value="Biologie">Biologie</option>
+        <option value="Chemie">Chemie</option>
+        <option value="Physik">Physik</option>
+        <option value="Informatik">Informatik</option>
+      </optgroup>
+      <optgroup label="Weitere Fächer">
+        <option value="Sport">Sport</option>
+        <option value="Ernährung">Ernährung</option>
+        <option value="Betriebswirtschaft">Betriebswirtschaft m. RuC</option>
+        <option value="Pädagogik-Psychologie">Pädagogik-Psychologie</option>
+        <option value="Gesundheit-Pflege">Gesundheit-Pflege</option>
+        <option value="Betriebs- u. Volkswirtschaft">Betriebs- u. Volkswirtschaft</option>
+        <option value="Volkswirtschaft">Volkswirtschaft</option>
+        <option value="Mechatronik">Mechatronik</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <span class="form-label">Anforderungsniveau</span>
+    <div class="niveau-row">
+      <div class="niv-btn disabled" data-niv="eA" id="btnEA" onclick="selectNiv('eA')">
+        <div class="niv-tag">eA</div>
+        <div class="niv-min" id="eaMinText">– min</div>
+      </div>
+      <div class="niv-btn disabled" data-niv="gA" id="btnGA" onclick="selectNiv('gA')">
+        <div class="niv-tag">gA</div>
+        <div class="niv-min" id="gaMinText">– min</div>
+      </div>
+    </div>
+  </div>
+  <p class="hint">inkl. Auswahlzeit · Quelle: ZA 2026 Niedersachsen</p>
+
+  <div class="row2">
+    <div class="form-group">
+      <label class="form-label" for="startzeit">Startzeit</label>
+      <input type="time" id="startzeit" value="08:00" />
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ntaInput">NTA Zusatzzeit (min)</label>
+      <input type="text" id="ntaInput" placeholder="0" style="text-align:center;" />
+    </div>
+  </div>
+
+  <button class="btn-start" onclick="startTimer()">Timer starten →</button>
+</div>
+
+<!-- ── TIMER SCREEN ─────────────────────────────────────── -->
+<div id="timerScreen">
+  <div class="board" id="board">
+    <div class="board-layout">
+
+      <div class="col-left">
+        <div class="info-block">
+          <div class="ib-label">Fach</div>
+          <div class="ib-value" id="dFach">—</div>
+        </div>
+        <div class="info-block">
+          <div class="ib-label">Niveau</div>
+          <div><span class="niveau-badge ea" id="dNiveau">eA</span></div>
+        </div>
+      </div>
+
+      <div class="col-center">
+        <svg class="svg-clock" id="svgClock" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="100" cy="100" r="95" fill="white" stroke="#5b3fa6" stroke-width="3.5"/>
+          <g id="clockMarkers"></g>
+          <circle id="ringArc" cx="100" cy="100" r="84"
+            fill="none" stroke="#ede8f9" stroke-width="9"
+            stroke-dasharray="527.8" stroke-dashoffset="527.8"
+            stroke-linecap="round"
+            transform="rotate(-90 100 100)"/>
+          <line id="hHour"   x1="100" y1="100" x2="100" y2="58" stroke="#3d2875" stroke-width="5"   stroke-linecap="round"/>
+          <line id="hMinute" x1="100" y1="100" x2="100" y2="32" stroke="#5b3fa6" stroke-width="3"   stroke-linecap="round"/>
+          <line id="hSecond" x1="100" y1="100" x2="100" y2="26" stroke="#e05070" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="100" cy="100" r="5" fill="#5b3fa6"/>
+        </svg>
+
+        <div class="digital" id="digital">00:00</div>
+        <div class="phase-name" id="phaseName">Arbeitszeit</div>
+      </div>
+
+      <div class="col-right">
+        <div class="info-block">
+          <div class="ib-label">Beginn</div>
+          <div class="ib-value" id="dBeginn">—</div>
+        </div>
+        <div class="info-block">
+          <div class="ib-label">Ende</div>
+          <div class="ib-value" id="dEnde">—</div>
+        </div>
+        <div class="info-block" id="durationBlock">
+          <div class="ib-label">Dauer</div>
+          <div class="nta-badge" id="dDauer">—</div>
+        </div>
+        <div class="info-block" id="ntaBlock" style="display:none">
+          <div class="ib-label">+ NTA</div>
+          <div class="nta-badge" id="dNTA">—</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-fill" id="progFill"></div>
+      </div>
+
+      <div class="viel-erfolg">Viel Erfolg!</div>
+    </div>
+  </div>
+  <button class="reset-link" onclick="resetTimer()">↩ Neu konfigurieren</button>
+</div>
+
+<!-- ── DONE OVERLAY ──────────────────────────────────────── -->
+<div id="doneOverlay">
+  <div class="done-card">
+    <div class="dc-emoji">🎓</div>
+    <h2>Zeit abgelaufen!</h2>
+    <p id="doneBody"></p>
+    <button class="btn-new" onclick="resetTimer()">Neuer Timer</button>
+  </div>
+</div>
+
+<script>
+/* ── Prüfungszeiten 2026 (Minuten) ─────────────────────── */
+const FAECHER = {
+  "Deutsch":                      { eA: 315, gA: 255 },
+  "Englisch":                     { eA: 315, gA: 285 },
+  "Französisch":                  { eA: 315, gA: 285 },
+  "Französisch (neub.)":          { eA: null, gA: 175 },
+  "Spanisch":                     { eA: 315, gA: 285 },
+  "Spanisch (neub.)":             { eA: null, gA: 175 },
+  "Latein":                       { eA: 300, gA: 255 },
+  "Griechisch":                   { eA: 300, gA: 255 },
+  "Kunst":                        { eA: 300, gA: 255 },
+  "Musik":                        { eA: 300, gA: 255 },
+  "Erdkunde":                     { eA: 300, gA: 255 },
+  "Geschichte":                   { eA: 300, gA: 255 },
+  "Politik-Wirtschaft":           { eA: 300, gA: 255 },
+  "Ev. Religion":                 { eA: 300, gA: 255 },
+  "Kath. Religion":               { eA: 300, gA: 255 },
+  "Werte und Normen":             { eA: null, gA: 255 },
+  "Mathematik":                   { eA: 330, gA: 285 },
+  "Biologie":                     { eA: 300, gA: 255 },
+  "Chemie":                       { eA: 300, gA: 255 },
+  "Physik":                       { eA: 300, gA: 255 },
+  "Informatik":                   { eA: 300, gA: 255 },
+  "Sport":                        { eA: 270, gA: null },
+  "Ernährung":                    { eA: 300, gA: null },
+  "Betriebswirtschaft":           { eA: 300, gA: null },
+  "Pädagogik-Psychologie":        { eA: 300, gA: null },
+  "Gesundheit-Pflege":            { eA: 300, gA: null },
+  "Betriebs- u. Volkswirtschaft": { eA: null, gA: 255 },
+  "Volkswirtschaft":              { eA: null, gA: 255 },
+  "Mechatronik":                  { eA: 300, gA: null },
+};
+
+let selectedNiv  = null;
+let secsLeft     = 0;
+let totalSecs    = 0;
+let ticker       = null;
+let clockTicker  = null;
+
+/* ── Subject change → update buttons ───────────────────── */
+function onFachChange() {
+  selectedNiv = null;
+  const fach = document.getElementById('fachSelect').value;
+  const data = FAECHER[fach] || { eA: null, gA: null };
+
+  const btnEA = document.getElementById('btnEA');
+  const btnGA = document.getElementById('btnGA');
+
+  btnEA.classList.remove('selected', 'disabled');
+  btnGA.classList.remove('selected', 'disabled');
+
+  if (data.eA) {
+    document.getElementById('eaMinText').textContent = `${data.eA} min`;
+  } else {
+    document.getElementById('eaMinText').textContent = 'nicht vorgesehen';
+    btnEA.classList.add('disabled');
+  }
+
+  if (data.gA) {
+    document.getElementById('gaMinText').textContent = `${data.gA} min`;
+  } else {
+    document.getElementById('gaMinText').textContent = 'nicht vorgesehen';
+    btnGA.classList.add('disabled');
+  }
+
+  // Auto-select if only one option available
+  if (data.eA && !data.gA) selectNiv('eA');
+  if (data.gA && !data.eA) selectNiv('gA');
+}
+
+function selectNiv(niv) {
+  selectedNiv = niv;
+  document.getElementById('btnEA').classList.toggle('selected', niv === 'eA');
+  document.getElementById('btnGA').classList.toggle('selected', niv === 'gA');
+}
+
+/* ── Time helpers ───────────────────────────────────────── */
+function addMins(timeStr, mins) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const t = h * 60 + m + mins;
+  return `${String(Math.floor(t / 60) % 24).padStart(2,'0')}:${String(t % 60).padStart(2,'0')}`;
+}
+
+function fmtMins(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m > 0 ? m + 'min' : ''}`.trim() : `${m} min`;
+}
+
+/* ── Start ──────────────────────────────────────────────── */
+function startTimer() {
+  const fach = document.getElementById('fachSelect').value;
+  if (!fach)        { alert('Bitte ein Prüfungsfach wählen.'); return; }
+  if (!selectedNiv) { alert('Bitte eA oder gA wählen.'); return; }
+
+  const nta     = parseInt(document.getElementById('ntaInput').value) || 0;
+  const start   = document.getElementById('startzeit').value || '08:00';
+  const baseMins = FAECHER[fach][selectedNiv];
+  const totalMins = baseMins + nta;
+  const end = addMins(start, totalMins);
+
+  // Board display
+  document.getElementById('dFach').textContent   = fach;
+  const badge = document.getElementById('dNiveau');
+  badge.textContent = selectedNiv;
+  badge.className   = `niveau-badge ${selectedNiv === 'eA' ? 'ea' : 'ga'}`;
+  document.getElementById('dBeginn').textContent = start;
+  document.getElementById('dEnde').textContent   = end;
+  document.getElementById('dDauer').textContent  = fmtMins(totalMins);
+
+  if (nta > 0) {
+    document.getElementById('ntaBlock').style.display = '';
+    document.getElementById('dNTA').textContent = `${nta} min`;
+  } else {
+    document.getElementById('ntaBlock').style.display = 'none';
+  }
+
+  // Board accent color
+  const board = document.getElementById('board');
+  board.className = `board ${selectedNiv === 'eA' ? 'ea-mode' : 'ga-mode'}`;
+
+  // Ring color
+  const ringColor = selectedNiv === 'eA' ? '#5b3fa6' : '#2e8b57';
+  document.getElementById('ringArc').setAttribute('stroke', ringColor);
+
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('timerScreen').style.display = 'block';
+
+  totalSecs = totalMins * 60;
+  secsLeft  = totalSecs;
+
+  clockTicker = setInterval(tickClock, 100);
+  tickClock();
+  clearInterval(ticker);
+  ticker = setInterval(tick, 1000);
+  render();
+}
+
+/* ── Tick ───────────────────────────────────────────────── */
+function tick() {
+  if (secsLeft > 0) { secsLeft--; render(); }
+  else              { clearInterval(ticker); onDone(); }
+}
+
+function render() {
+  const m  = Math.floor(secsLeft / 60);
+  const s  = secsLeft % 60;
+  const el = document.getElementById('digital');
+  el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  el.classList.toggle('warning', secsLeft <= 300 && secsLeft > 0);
+
+  const pct  = 1 - secsLeft / totalSecs;
+  const circ = 2 * Math.PI * 84;
+  const arc  = document.getElementById('ringArc');
+  arc.setAttribute('stroke-dasharray',  circ.toFixed(1));
+  arc.setAttribute('stroke-dashoffset', (circ * (1 - pct)).toFixed(1));
+  if (secsLeft <= 300 && secsLeft > 0) arc.setAttribute('stroke', '#e05070');
+
+  document.getElementById('progFill').style.width = `${pct * 100}%`;
+}
+
+/* ── Done ───────────────────────────────────────────────── */
+function onDone() {
+  const fach = document.getElementById('dFach').textContent;
+  const end  = document.getElementById('dEnde').textContent;
+  document.getElementById('doneBody').innerHTML =
+    `<strong>${fach}</strong> (${selectedNiv}) – Prüfungszeit beendet.<br>Ende: ${end} Uhr`;
+  document.getElementById('doneOverlay').style.display = 'flex';
+  document.getElementById('board').classList.add('finished');
+  document.getElementById('digital').textContent = '00:00';
+  document.getElementById('progFill').style.width = '100%';
+}
+
+/* ── Clock hands ────────────────────────────────────────── */
+function tickClock() {
+  const now = new Date();
+  const h12 = now.getHours() % 12;
+  const min = now.getMinutes();
+  const sec = now.getSeconds();
+  const ms  = now.getMilliseconds();
+  setHand('hHour',   (h12/12 + min/720  + sec/43200) * 360 - 90, 42);
+  setHand('hMinute', (min/60  + sec/3600)             * 360 - 90, 68);
+  setHand('hSecond', (sec/60  + ms/60000)             * 360 - 90, 74);
+}
+function setHand(id, deg, len) {
+  const r = deg * Math.PI / 180;
+  const el = document.getElementById(id);
+  el.setAttribute('x2', (100 + len * Math.cos(r)).toFixed(2));
+  el.setAttribute('y2', (100 + len * Math.sin(r)).toFixed(2));
+}
+
+/* ── Init clock markers ─────────────────────────────────── */
+(function() {
+  const g = document.getElementById('clockMarkers');
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * 2 * Math.PI - Math.PI / 2;
+    const big = i % 5 === 0;
+    const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1', (100 + (big?78:82) * Math.cos(a)).toFixed(2));
+    ln.setAttribute('y1', (100 + (big?78:82) * Math.sin(a)).toFixed(2));
+    ln.setAttribute('x2', (100 + 90 * Math.cos(a)).toFixed(2));
+    ln.setAttribute('y2', (100 + 90 * Math.sin(a)).toFixed(2));
+    ln.setAttribute('stroke', '#5b3fa6');
+    ln.setAttribute('stroke-width', big ? '2.5' : '1');
+    g.appendChild(ln);
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+})();
+
+/* ── Reset ──────────────────────────────────────────────── */
+function resetTimer() {
+  clearInterval(ticker);
+  clearInterval(clockTicker);
+  selectedNiv = null;
+  document.getElementById('doneOverlay').style.display   = 'none';
+  document.getElementById('board').classList.remove('finished');
+  document.getElementById('timerScreen').style.display   = 'none';
+  document.getElementById('setupScreen').style.display   = '';
+  document.getElementById('fachSelect').value = '';
+  document.getElementById('btnEA').classList.remove('selected','disabled');
+  document.getElementById('btnGA').classList.remove('selected','disabled');
+  document.getElementById('eaMinText').textContent = '– min';
+  document.getElementById('gaMinText').textContent = '– min';
+}
+</script>
+</body>
+</html>
